@@ -1,49 +1,39 @@
-const express = require('express');
-const path = require('path');
-//import apollo server
-const { ApolloServer } = require('apollo-server-express');
-// import typeDefs and resolvers
-const { typeDefs, resolvers} = require('./schemas');
-const {authMiddleware} = require('./utils/auth');
+const jwt = require('jsonwebtoken');
 
-//db connection
-const db = require('./config/connection');
+// set token secret and expiration date
+const secret = 'mysecretsshhhhh';
+const expiration = '2h';
 
-// const routes = require('./routes');
+module.exports = {
+  // function for our authenticated routes
+  authMiddleware: function ({ req }) {
+    // allows token to be sent via  req.query or headers
+    let token = req.query.token || req.headers.authorization || req.body.token;
 
-//express server
-const app = express();
-const PORT = process.env.PORT || 3001;
+    // ["Bearer", "<tokenvalue>"]
+    if (req.headers.authorization) {
+      token = token.split(' ').pop().trim();
+    }
 
-//apollo server
-const server = new ApolloServer({
-  typeDefs,
-  resolvers,
-  context: authMiddleware
-});
+    if (!token) {
+      return req;
+    }
 
-//apply apollo server with express app
-server.applyMiddleware({ app });
+    // verify token and get user data out of it
+    try {
+      const { data } = jwt.verify(token, secret, { maxAge: expiration });
+      req.user = data;
+    } catch {
+      console.log('Invalid token');
+      return res.status(400).json({ message: 'invalid token!' });
+    }
 
-//middleware parsing
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
+    // send to next endpoint
+    return req;
+  },
+  signToken: function ({ username, email, _id }) {
+    const payload = { username, email, _id };
 
-// if we're in production, serve client/build as static assets
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../client/build')));
-}
-
-// app.use(routes);
-
-//get all
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../client/build/index.html'));
-});
-
-db.once('open', () => {
-  app.listen(PORT, () => {
-    console.log(`API server running on port ${PORT}!`);
-    console.log(`Use GraphQL at http://localhost:${PORT}${server.graphqlPath}`);
-  });
-});
+    return jwt.sign({ data: payload }, secret, { expiresIn: expiration });
+  },
+};
