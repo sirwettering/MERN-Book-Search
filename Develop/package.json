@@ -27,6 +27,7 @@
     "apollo": "^2.33.9",
     "apollo-server-express": "^3.6.2",
     "faker": "^6.6.6",
+    "graphql": "^16.3.0",
     "jwt-decode": "^3.1.2",
     "nodemon": "^2.0.15"
   }
